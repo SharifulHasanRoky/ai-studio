@@ -1,8 +1,9 @@
-// xAI Grok image generation (OpenAI-compatible).
-// Docs: https://docs.x.ai/docs/guides/image-generations
+// xAI Grok image generation.
+// Docs: https://docs.x.ai/developers/model-capabilities/images/generation
+// Current model: grok-imagine-image-quality (replaced deprecated grok-2-image-1212)
 
 const BASE = "https://api.x.ai/v1";
-const MODEL = "grok-2-image-1212";
+const MODEL = "grok-imagine-image-quality";
 
 type Media = { kind: "image" | "video"; url: string; mime: string };
 
@@ -26,6 +27,10 @@ export async function generateImageGrok(prompt: string): Promise<{ media: Media[
 
   if (!res.ok) {
     const errText = await safeText(res);
+    // Provide helpful message for common errors
+    if (res.status === 403) {
+      throw new Error(`Grok: Your API key doesn't have credits. Purchase credits at https://console.x.ai or use Gemini instead.`);
+    }
     throw new Error(`Grok: ${res.status} ${errText}`);
   }
 

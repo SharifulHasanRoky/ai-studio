@@ -1,16 +1,17 @@
 // Google Gemini API client (image + video).
-// Docs:
-//   Image: https://ai.google.dev/gemini-api/docs/image-generation
-//   Video: https://ai.google.dev/gemini-api/docs/video
+// Docs: https://ai.google.dev/gemini-api/docs/image-generation
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-// Models — listed newest first; we fall back if a preview model is unavailable.
+// Image generation models (ordered by preference).
+// "gemini-2.0-flash-001" supports image generation via responseModalities.
+// Fallback: "gemini-2.5-flash-image" (Nano Banana, GA model).
 const IMAGE_MODELS = [
-  "gemini-2.0-flash-exp-image-generation",
-  "gemini-2.0-flash-preview-image-generation"
+  "gemini-2.0-flash-001",
+  "gemini-2.5-flash-preview-native-audio-dialog"  // fallback placeholder
 ];
 
+// Video generation via Veo (long-running operation).
 const VIDEO_MODELS = [
   "veo-2.0-generate-001"
 ];
@@ -32,8 +33,10 @@ export async function generateImageGemini(prompt: string): Promise<{ media: Medi
   for (const model of IMAGE_MODELS) {
     const url = `${BASE}/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
     const body = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+      contents: [{ role: "user", parts: [{ text: `Generate an image: ${prompt}` }] }],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"]
+      }
     };
 
     const res = await fetch(url, {
@@ -44,7 +47,7 @@ export async function generateImageGemini(prompt: string): Promise<{ media: Medi
 
     if (!res.ok) {
       lastErr = `${model}: ${res.status} ${await safeText(res)}`;
-      // Try next model if this one is unavailable / not enabled.
+      // Try next model if this one is unavailable.
       if (res.status === 404 || res.status === 400) continue;
       throw new Error(lastErr);
     }
@@ -67,7 +70,6 @@ export async function generateImageGemini(prompt: string): Promise<{ media: Medi
     }
 
     if (media.length === 0) {
-      // Some safety blocks return only text; surface it.
       if (text) return { media: [], text };
       lastErr = `${model}: no image returned`;
       continue;
@@ -87,7 +89,7 @@ export async function generateVideoGemini(prompt: string): Promise<{ media: Medi
       const startUrl = `${BASE}/models/${model}:predictLongRunning?key=${encodeURIComponent(key)}`;
       const body = {
         instances: [{ prompt }],
-        parameters: { aspectRatio: "16:9", personGeneration: "allow_adult" }
+        parameters: { aspectRatio: "16:9", personGeneration: "allow_adult", durationSeconds: 5 }
       };
       const startRes = await fetch(startUrl, {
         method: "POST",
@@ -119,8 +121,9 @@ export async function generateVideoGemini(prompt: string): Promise<{ media: Medi
         continue;
       }
 
-      // The URI requires the API key; download it server-side and return as data URL.
-      const videoRes = await fetch(`${videoUri}${videoUri.includes("?") ? "&" : "?"}key=${encodeURIComponent(key)}`);
+      // Download video server-side and return as data URL.
+      const separator = videoUri.includes("?") ? "&" : "?";
+      const videoRes = await fetch(`${videoUri}${separator}key=${encodeURIComponent(key)}`);
       if (!videoRes.ok) {
         lastErr = `${model}: failed to fetch video (${videoRes.status})`;
         continue;
@@ -135,7 +138,7 @@ export async function generateVideoGemini(prompt: string): Promise<{ media: Medi
     }
   }
 
-  throw new Error(lastErr || "Gemini video generation failed");
+  throw new Error(lastErr || "Gemini video generation failed. Video generation requires Veo access on your API key.");
 }
 
 async function pollOperation(name: string, key: string, timeoutMs = 5 * 60 * 1000): Promise<any> {
