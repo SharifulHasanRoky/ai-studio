@@ -7,12 +7,11 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 // Models — listed newest first; we fall back if a preview model is unavailable.
 const IMAGE_MODELS = [
-  "gemini-2.5-flash-image-preview",
+  "gemini-2.0-flash-exp-image-generation",
   "gemini-2.0-flash-preview-image-generation"
 ];
 
 const VIDEO_MODELS = [
-  "veo-3.0-generate-preview",
   "veo-2.0-generate-001"
 ];
 
@@ -24,7 +23,7 @@ function requireKey(): string {
   return key;
 }
 
-type Media = { kind: "image" | "video"; url: string; mime?: string };
+type Media = { kind: "image" | "video"; url: string; mime: string };
 
 export async function generateImageGemini(prompt: string): Promise<{ media: Media[]; text?: string }> {
   const key = requireKey();
@@ -57,10 +56,10 @@ export async function generateImageGemini(prompt: string): Promise<{ media: Medi
 
     for (const p of parts) {
       if (p.inlineData?.data) {
-        const mime = p.inlineData.mimeType || "image/png";
+        const mime: string = p.inlineData.mimeType || "image/png";
         media.push({ kind: "image", url: `data:${mime};base64,${p.inlineData.data}`, mime });
       } else if (p.inline_data?.data) {
-        const mime = p.inline_data.mime_type || "image/png";
+        const mime: string = p.inline_data.mime_type || "image/png";
         media.push({ kind: "image", url: `data:${mime};base64,${p.inline_data.data}`, mime });
       } else if (typeof p.text === "string") {
         text = (text ? text + "\n" : "") + p.text;
@@ -139,7 +138,7 @@ export async function generateVideoGemini(prompt: string): Promise<{ media: Medi
   throw new Error(lastErr || "Gemini video generation failed");
 }
 
-async function pollOperation(name: string, key: string, timeoutMs = 5 * 60 * 1000) {
+async function pollOperation(name: string, key: string, timeoutMs = 5 * 60 * 1000): Promise<any> {
   const url = `${BASE}/${name}?key=${encodeURIComponent(key)}`;
   const start = Date.now();
   let delay = 5000;

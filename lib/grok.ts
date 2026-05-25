@@ -4,7 +4,7 @@
 const BASE = "https://api.x.ai/v1";
 const MODEL = "grok-2-image-1212";
 
-type Media = { kind: "image" | "video"; url: string; mime?: string };
+type Media = { kind: "image" | "video"; url: string; mime: string };
 
 export async function generateImageGrok(prompt: string): Promise<{ media: Media[]; text?: string }> {
   const key = process.env.GROK_API_KEY;
@@ -25,28 +25,26 @@ export async function generateImageGrok(prompt: string): Promise<{ media: Media[
   });
 
   if (!res.ok) {
-    const text = await safeText(res);
-    throw new Error(`Grok: ${res.status} ${text}`);
+    const errText = await safeText(res);
+    throw new Error(`Grok: ${res.status} ${errText}`);
   }
 
   const data = await res.json();
   const items: any[] = data?.data || [];
-  const media: Media[] = items
-    .map((it) => {
-      if (it.b64_json) {
-        return { kind: "image" as const, url: `data:image/png;base64,${it.b64_json}`, mime: "image/png" };
-      }
-      if (it.url) {
-        return { kind: "image" as const, url: it.url };
-      }
-      return null;
-    })
-    .filter((x): x is Media => x !== null);
+  const media: Media[] = [];
+
+  for (const it of items) {
+    if (it.b64_json) {
+      media.push({ kind: "image", url: `data:image/png;base64,${it.b64_json}`, mime: "image/png" });
+    } else if (it.url) {
+      media.push({ kind: "image", url: it.url, mime: "image/png" });
+    }
+  }
 
   if (media.length === 0) throw new Error("Grok: no image returned");
 
   const text = items
-    .map((it) => it.revised_prompt)
+    .map((it: any) => it.revised_prompt)
     .filter(Boolean)
     .join("\n");
 

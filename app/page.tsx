@@ -12,7 +12,7 @@ export type Message = {
   id: string;
   role: "user" | "assistant";
   text?: string;
-  media?: { kind: "image" | "video"; url: string; mime?: string }[];
+  media?: { kind: "image" | "video"; url: string; mime: string }[];
   pending?: boolean;
   error?: string;
   meta?: { provider: Provider; mode: Mode };
@@ -125,7 +125,7 @@ export default function Page() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
 
-      const media = (data.media || []) as { kind: "image" | "video"; url: string; mime?: string }[];
+      const media = (data.media || []) as { kind: "image" | "video"; url: string; mime: string }[];
 
       updateActive((c) => ({
         ...c,
